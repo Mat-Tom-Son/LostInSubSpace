@@ -1,0 +1,26 @@
+Traceback (most recent call last):
+  File "<string>", line 8, in <module>
+  File "C:\Users\mat_t\Desktop\Dev\allo-audit\clean_audit\experiments\phase_5\exp_5_1_tinystories_factorial.py", line 385, in run_factorial
+    batch = next(train_iter)
+            ^^^^^^^^^^^^^^^^
+  File "C:\Users\mat_t\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\utils\data\dataloader.py", line 701, in __next__
+    data = self._next_data()
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\mat_t\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\utils\data\dataloader.py", line 757, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mat_t\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\utils\data\_utils\fetch.py", line 55, in fetch
+    return self.collate_fn(data)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mat_t\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\utils\data\_utils\collate.py", line 398, in default_collate
+    return collate(batch, collate_fn_map=default_collate_fn_map)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mat_t\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\utils\data\_utils\collate.py", line 212, in collate
+    collate(samples, collate_fn_map=collate_fn_map)
+  File "C:\Users\mat_t\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\utils\data\_utils\collate.py", line 155, in collate
+    return collate_fn_map[elem_type](batch, collate_fn_map=collate_fn_map)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\mat_t\AppData\Local\Programs\Python\Python312\Lib\site-packages\torch\utils\data\_utils\collate.py", line 272, in collate_tensor_fn
+    return torch.stack(batch, 0, out=out)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: stack expects each tensor to be equal size, but got [127] at entry 0 and [0] at entry 22

@@ -1,0 +1,8 @@
+THE SMOKING GUN TEST: Sedating the Hardened Model
+Condition: | Hardened Model | Clamp A -> 3.0 | Noise sigma=5.0 |
+  [CLAMP DEBUG] Before: 9.1055 -> After: 3.0000 (target: 3.0000, scale: 0.3295)
+  [CLAMP DEBUG] Before: 9.1044 -> After: 3.0000 (target: 3.0000, scale: 0.3295)
+  [CLAMP DEBUG] Before: 9.1055 -> After: 3.0000 (target: 3.0000, scale: 0.3295)
+
+Final Accuracy: 53.28%
+>> RESULT: DEATH. Amplitude margin was still needed.

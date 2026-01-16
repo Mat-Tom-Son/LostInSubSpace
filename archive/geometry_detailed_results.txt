@@ -1,0 +1,25 @@
+Verifying Geometry (p=113, d=32)...
+----------------------------------------
+RESULTS
+----------------------------------------
+Residual Stream Cos Similarity: -0.0059
+>> ORTHOGONAL GEOMETRY CONFIRMED
+
+Attention Pattern Similarity (Per Head):
+  Head 0: 0.9859
+  Head 1: 0.9683
+  Head 2: 0.9898
+  Head 3: 0.9962
+  Head 4: 0.9911
+  Head 5: 0.9199
+  Head 6: 0.9444
+  Head 7: 0.9626
+  Head 8: 0.9329
+  Head 9: 0.8930
+  Head 10: 0.9418
+  Head 11: 0.8882
+  Head 12: 0.9497
+  Head 13: 0.9892
+  Head 14: 0.7509
+
+Mean Attn Sim: 0.9403

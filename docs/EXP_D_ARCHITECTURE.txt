@@ -1,0 +1,292 @@
+================================================================================
+EXPERIMENT D: POLYSEMANTICITY AND HIGH-A REGIME
+================================================================================
+
+FILE: clean_audit/experiments/exp_d_superposition.py
+LINES: 891
+STATUS: IMPLEMENTATION COMPLETE
+
+================================================================================
+ARCHITECTURE OVERVIEW
+================================================================================
+
+DATA LAYER
+----------
+SimpleTokenDataset
+  |_ Generates N random token sequences
+  |_ Returns (input_ids, target_ids) pairs
+  |_ Configurable: vocab_size, n_samples, seq_len
+  |_ Minimum requirement: >=1000 diverse examples
+
+MODEL LAYER
+-----------
+SimpleTrans (top-level)
+  |
+  +-- Token Embedding [vocab] -> [d_model]
+  +-- Position Embedding [seq_len] -> [d_model]
+  |
+  +-- Transformer Block Layer 0
+  |     |-- LayerNorm
+  |     +-- MultiHeadAttention
+  |           |-- W_q, W_k, W_v, W_o projections
+  |           +-- Scaled dot-product attention (n_heads=4)
+  |     |-- LayerNorm
+  |     +-- FeedForward
+  |           |-- Linear [d_model] -> [d_ff]
+  |           |-- ReLU activation
+  |           |-- Linear [d_ff] -> [d_model]
+  |           +-- Residual connection
+  |
+  +-- Transformer Block Layer 1
+  |     (Same structure as Layer 0)
+  |
+  +-- LayerNorm (final)
+  +-- Head: Linear [d_model] -> [vocab_size]
+
+CORE ALGORITHM: SUPPRESSOR IDENTIFICATION
+-------------------------------------------
+SuppressorAnalyzer
+  |
+  +-- measure_downstream_variance(batch, layer_idx)
+  |     |_ Get residual stream after layer_idx
+  |     +_ Compute sigma-squared using AllostasisAudit
+  |
+  +-- ablate_head(batch, layer_idx, head_idx)
+  |     |_ Register forward hook on attention module
+  |     |_ Hook zeros out [head_size] segment of head output
+  |     |_ Measure downstream variance with ablation
+  |     +_ Clean up hook
+  |
+  +-- identify_suppressors(dataloader, layer_idx=0, threshold=1.5)
+  |     |
+  |     |_ For each batch (max 20 batches):
+  |     |     |_ Measure baseline_var (no ablation)
+  |     |     +_ For each head (0 to n_heads-1):
+  |     |           |_ Measure ablated_var (with ablation)
+  |     |           +_ Store measurements
+  |     |
+  |     |_ For each head:
+  |     |     |_ Compute ratio = mean(ablated_var) / mean(baseline_var)
+  |     |     +_ If ratio > threshold: SUPPRESSOR!
+  |     |
+  |     +_ Return (suppressor_set, statistics_dict)
+  |
+  +-- compute_head_correlations(batch, layer_idx)
+        |_ Capture all head outputs via hook
+        +_ Compute correlation matrix [n_heads x n_heads]
+
+VARIANCE MEASUREMENT
+--------------------
+measure_variance_by_site(model, dataloader, suppressors)
+  |
+  +-- Suppressor heads (Layer 0)
+  |     |_ For each suppressor index:
+  |     |     |_ Measure head output variance
+  |     |     +_ Accumulate measurements
+  |
+  +-- Clean heads (Early, Layer 0)
+  |     |_ For each non-suppressor head:
+  |     |     |_ Measure head output variance
+  |     |     +_ Accumulate measurements
+  |
+  +-- Clean heads (Late, Layer 1)
+        |_ For all heads in Layer 1:
+        |     |_ Measure head output variance
+        |     +_ Accumulate measurements
+
+STATISTICAL VALIDATION
+----------------------
+compute_bootstrap_ci(data, n_bootstrap=1000, ci=0.95)
+  |
+  +-- Compute mean of data
+  |
+  +-- For i=1 to n_bootstrap:
+  |     |_ Resample with replacement
+  |     +_ Compute mean of sample
+  |
+  +-- Compute percentiles for CI
+  +-- Return (mean, lower_ci, upper_ci)
+
+MAIN EXPERIMENT FLOW
+--------------------
+main(args)
+  |
+  1. Setup reproducibility (seed, device, logging)
+  |
+  2. Create dataset (>=1000 samples)
+  |     +-- SimpleTokenDataset(vocab_size, n_samples, seq_len)
+  |
+  3. Create model
+  |     +-- SimpleTrans(vocab_size, d_model, n_heads, n_layers, ...)
+  |
+  4. Optional pre-training
+  |     +-- Adam optimizer for train_steps iterations
+  |
+  5. IDENTIFY SUPPRESSORS (Core algorithm)
+  |     |_ analyzer.identify_suppressors(dataloader, layer_idx=0, threshold=1.5)
+  |     +_ For each head: measure baseline -> ablate -> measure ablated
+  |
+  6. MEASURE VARIANCE at three sites
+  |     +_ measure_variance_by_site(model, dataloader, suppressors)
+  |
+  7. COMPUTE STATISTICS
+  |     |_ For each site:
+  |     |     |_ Compute bootstrap CI
+  |     |     +_ Store statistics
+  |     |
+  |     |_ Compute suppressor/clean variance ratio
+  |     |
+  |     +_ Cross-validate with correlation analysis
+  |
+  8. SAVE RESULTS
+  |     |_ Log to JSON via AuditLogger
+  |     +_ Print summary to console
+
+================================================================================
+FUNCTIONAL ABLATION MECHANISM (KEY INNOVATION)
+================================================================================
+
+The ablation hook:
+
+def ablate_hook(module, input_args, output):
+    """
+    Hook intercepting MultiHeadAttention output.
+
+    input:  [batch, seq, d_model]
+    action: Zero out head_idx's portion
+    output: [batch, seq, d_model] with head_idx component = 0
+    """
+    head_size = output.shape[-1] // n_heads
+    start_idx = head_idx * head_size
+    end_idx = (head_idx + 1) * head_size
+
+    output_ablated = output.clone()
+    output_ablated[:, :, start_idx:end_idx] = 0.0
+
+    return output_ablated
+
+This ensures:
+- Clean separation of head contributions
+- Accurate measurement of each head's suppressive effect
+- No circular logic (ablation -> measure variance)
+
+================================================================================
+SUCCESS CRITERIA (from Research Directive)
+================================================================================
+
+1. Suppressor Identification:
+   - var_ablated / var_baseline > 1.5 for a head to be marked suppressor
+
+2. Variance Separation:
+   - mean(suppressor_head_variance) >= 2.0x mean(clean_head_variance)
+
+3. Statistical Significance:
+   - Bootstrap CI [lower_ci, upper_ci] does NOT include 1.0
+   - 95% confidence level
+
+4. Structural Validation:
+   - Suppressors show anti-correlation: correlation(head_i, head_j) < -0.5
+   - Validates functional distinctness
+
+================================================================================
+PARAMETERS & CONFIGURATION
+================================================================================
+
+Data:
+  vocab_size: 256
+  n_samples: 2000 (minimum 1000)
+  seq_len: 32
+  batch_size: 32
+
+Model:
+  d_model: 64
+  n_heads: 4
+  n_layers: 2 (focus on layer 0)
+  d_ff: 256
+  dropout: 0.1
+
+Experiment:
+  train_steps: 200
+  suppressor_threshold: 1.5
+  n_bootstrap: 1000
+  n_measurement_batches: 20
+
+System:
+  seed: 42
+  use_cuda: False (set True for GPU)
+  output_dir: clean_audit/data
+
+================================================================================
+OUTPUT STRUCTURE
+================================================================================
+
+JSON file: audit_log_exp_d_superposition_seed_*.json
+
+{
+  "metadata": {
+    "experiment": "exp_d_superposition",
+    "seed": 42,
+    "start_time": "2024-01-11T...",
+    "git_commit": "..."
+  },
+  "metrics": [
+    {
+      "step": 0,
+      "num_suppressors": 2,
+      "suppressor_indices": [0, 3],
+      "suppressor_stats": {
+        "0": {
+          "baseline_variance": 0.234,
+          "ablated_variance": 0.456,
+          "variance_ratio": 1.95,
+          "is_suppressor": true,
+          "n_samples": 20
+        }
+      }
+    },
+    {
+      "step": 1,
+      "suppressor_heads_variance": {
+        "mean": 0.425,
+        "lower_ci": 0.412,
+        "upper_ci": 0.438,
+        "std": 0.032,
+        "n_samples": 40
+      },
+      "clean_heads_early_variance": {...},
+      "clean_heads_late_variance": {...},
+      "variance_ratio_suppressor_to_clean": 2.15,
+      "suppressor_anti_correlation_count": 1
+    }
+  ],
+  "summary": {
+    "total_steps": 2,
+    "duration_seconds": 45.3
+  }
+}
+
+================================================================================
+DESIGN PRINCIPLES
+================================================================================
+
+1. NO CIRCULAR LOGIC
+   - Define suppressors by ABLATION (not variance)
+   - Measure variance AFTER identification
+   - Clear separation of mechanism and measurement
+
+2. FUNCTIONAL CLARITY
+   - Each class/method has single responsibility
+   - Hooks cleanly separate head contributions
+   - Residual caching at layer boundaries
+
+3. STATISTICAL RIGOR
+   - Multiple measurement sites (suppressor, clean early, clean late)
+   - Bootstrap CI for non-parametric confidence
+   - Cross-validation via correlation analysis
+
+4. REPRODUCIBILITY
+   - Seed control via setup_reproducibility()
+   - Deterministic ablation procedure
+   - Complete JSON logging of all measurements
+
+================================================================================
