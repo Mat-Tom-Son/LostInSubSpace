@@ -276,7 +276,13 @@ class OthelloDatasetEfficient(Dataset):
         # Games stored as [n_games, max_moves] uint8 array
         # Legal moves stored as [n_samples, vocab_size] if precomputed
         
-        npz_path = cache_path.replace('.json', '.npz') if cache_path else None
+        # Use different cache file for precomputed vs non-precomputed
+        if cache_path:
+            base_path = cache_path.replace('.json', '')
+            suffix = '_precomputed' if precompute_legal else ''
+            npz_path = f"{base_path}{suffix}.npz"
+        else:
+            npz_path = None
         
         if npz_path and Path(npz_path).exists():
             print(f"Loading games from cache: {npz_path}")
