@@ -422,14 +422,16 @@ def get_othello_loaders(
         n_games=n_train_games,
         ctx_len=ctx_len,
         seed=seed,
-        cache_path=cache_train
+        cache_path=cache_train,
+        precompute_legal=True  # Critical for speed!
     )
     
     val_dataset = OthelloDataset(
         n_games=n_val_games,
         ctx_len=ctx_len,
-        seed=seed + 1000,  # Different seed for validation
-        cache_path=cache_val
+        seed=seed + 1000,
+        cache_path=cache_val,
+        precompute_legal=True  # Critical for speed!
     )
     
     train_loader = DataLoader(
