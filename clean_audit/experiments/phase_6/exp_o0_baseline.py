@@ -119,10 +119,14 @@ def train_baseline(
     log_interval: int = 500,
     save_interval: int = 5000,
     seed: int = 42,
-    device: str = None
+    device: str = None,
+    resume_path: str = None
 ):
     """
     Train baseline Othello-GPT model.
+    
+    Args:
+        resume_path: Path to checkpoint to resume from
     """
     if device is None:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -137,6 +141,8 @@ def train_baseline(
     print(f"Run ID: {run_id}")
     print(f"Device: {device}")
     print(f"Architecture: {OTHELLO_ARCH}")
+    if resume_path:
+        print(f"Resuming from: {resume_path}")
     print()
     
     # Load data
@@ -168,10 +174,27 @@ def train_baseline(
     # Optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     
-    # Training loop
-    train_iter = iter(train_loader)
+    # Resume from checkpoint if provided
+    start_step = 0
     trajectory = []
     best_acc = 0.0
+    
+    if resume_path:
+        print(f"Loading checkpoint: {resume_path}")
+        checkpoint = torch.load(resume_path, map_location=device, weights_only=False)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        if 'optimizer_state_dict' in checkpoint:
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        if 'step' in checkpoint:
+            start_step = checkpoint['step']
+        if 'trajectory' in checkpoint:
+            trajectory = checkpoint['trajectory']
+        if 'best_acc' in checkpoint:
+            best_acc = checkpoint['best_acc']
+        print(f"  Resumed from step {start_step}, best_acc={best_acc*100:.2f}%")
+    
+    # Training loop
+    train_iter = iter(train_loader)
     
     pbar = tqdm(range(training_steps), desc="Training")
     for step in pbar:
@@ -264,6 +287,7 @@ def main():
     parser.add_argument('--training_steps', type=int, default=50000)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--quick_test', action='store_true', help='Quick test with minimal data')
+    parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint to resume from')
     
     args = parser.parse_args()
     
@@ -279,7 +303,8 @@ def main():
         batch_size=args.batch_size,
         lr=args.lr,
         training_steps=args.training_steps,
-        seed=args.seed
+        seed=args.seed,
+        resume_path=args.resume
     )
 
 
