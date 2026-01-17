@@ -24,18 +24,14 @@ env/
 .ipynb_checkpoints/
 
 # Data files (too large for git)
-*.json
+data/
+checkpoints/
 *.pt
 *.pth
 *.npz
 *.npy
-*.csv
 *.pkl
 *.pickle
-
-# Data directories
-clean_audit/data/
-data/
 
 # Logs
 *.log
@@ -53,3 +49,13 @@ Thumbs.db
 *.fls
 *.synctex.gz
 *.out
+
+# Helper scripts (auto-generated)
+scripts/fix_imports.py
+scripts/fix_phase1_imports.py
+scripts/fix_clean_audit_paths.py
+scripts/fix_clean_audit_paths_v2.py
+scripts/validate_imports.py
+
+# Claude settings
+.claude/
