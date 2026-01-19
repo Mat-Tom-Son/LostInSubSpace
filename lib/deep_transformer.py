@@ -119,12 +119,15 @@ class DeepTransformer(nn.Module):
         
         # Caching for metrics and interventions
         self.cache: Dict[str, torch.Tensor] = {}
-        
+
         # Clamp function (optional, set externally for sedation tests)
         self.clamp_fn = None
-        
+
         # Post-clamp noise scale (set externally for sedation tests)
         self.post_clamp_noise_scale = 0.0
+
+        # Flag to enable/disable caching (disable for training to save memory)
+        self.cache_activations = True
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -140,41 +143,47 @@ class DeepTransformer(nn.Module):
         
         # Clear cache
         self.cache = {}
-        
+
         # Embeddings
         positions = torch.arange(seq_len, device=x.device).unsqueeze(0).expand(batch_size, -1)
         h = self.token_emb(x) + self.pos_emb(positions)
-        
-        # Store pre-block residual
-        self.cache['resid_pre'] = h.clone()
-        
+
+        # Store pre-block residual (only if caching enabled)
+        if self.cache_activations:
+            self.cache['resid_pre'] = h.detach().clone()
+
         # Process through blocks
         for i, block in enumerate(self.blocks):
             h, attn_weights = block(h)
-            
-            # Cache per-layer outputs
-            self.cache[f'blocks.{i}.attn_weights'] = attn_weights.detach()
-            self.cache[f'blocks.{i}.resid_post'] = h.clone()
-        
+
+            # Cache per-layer outputs (only if caching enabled)
+            if self.cache_activations:
+                self.cache[f'blocks.{i}.attn_weights'] = attn_weights.detach()
+                self.cache[f'blocks.{i}.resid_post'] = h.detach().clone()
+
         # Store final residual (post all blocks)
-        self.cache['resid_post'] = h.clone()
-        
+        if self.cache_activations:
+            self.cache['resid_post'] = h.detach().clone()
+
         # Final layer norm
         h = self.ln_final(h)
-        self.cache['resid_final'] = h.clone()
-        
+        if self.cache_activations:
+            self.cache['resid_final'] = h.detach().clone()
+
         # Apply clamp if set (for sedation experiments)
         if self.clamp_fn is not None:
             class MockHook:
                 pass
             h = self.clamp_fn(h, MockHook())
-            self.cache['resid_clamped'] = h.clone()
-        
+            if self.cache_activations:
+                self.cache['resid_clamped'] = h.detach().clone()
+
         # Apply post-clamp noise (for sedation tests)
         if self.post_clamp_noise_scale > 0:
             noise = torch.randn_like(h) * self.post_clamp_noise_scale
             h = h + noise
-            self.cache['post_clamp_noised'] = h.clone()
+            if self.cache_activations:
+                self.cache['post_clamp_noised'] = h.detach().clone()
         
         # Output projection
         logits = self.head(h)

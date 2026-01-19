@@ -183,10 +183,21 @@ def train_baseline(
         print(f"Loading checkpoint: {resume_path}")
         checkpoint = torch.load(resume_path, map_location=device, weights_only=False)
         model.load_state_dict(checkpoint['model_state_dict'])
+
+        # Check for optimizer state
         if 'optimizer_state_dict' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            print("  Loaded optimizer state")
+        else:
+            print("  WARNING: No optimizer state in checkpoint!")
+            print("  Resuming with fresh optimizer may cause degradation.")
+            print("  Consider using exp_o0_baseline_optimized.py with --warmup_steps")
+
         if 'step' in checkpoint:
             start_step = checkpoint['step']
+        else:
+            print("  WARNING: No step count in checkpoint, starting from step 0")
+
         if 'trajectory' in checkpoint:
             trajectory = checkpoint['trajectory']
         if 'best_acc' in checkpoint:
@@ -195,8 +206,9 @@ def train_baseline(
     
     # Training loop
     train_iter = iter(train_loader)
-    
-    pbar = tqdm(range(training_steps), desc="Training")
+
+    # FIXED: Loop starts from start_step, not 0
+    pbar = tqdm(range(start_step, training_steps), desc="Training", initial=start_step, total=training_steps)
     for step in pbar:
         model.train()
         
@@ -264,10 +276,13 @@ def train_baseline(
     print(f"Final Legal Move Accuracy: {final_metrics['legal_acc']*100:.2f}%")
     print(f"Best Legal Move Accuracy: {best_acc*100:.2f}%")
     
-    # Save final model
+    # Save final model (FIXED: include optimizer state and step for proper resume)
     final_path = Path(f"data/othello_baseline_{run_id}_final.pt")
     torch.save({
+        'step': training_steps,
         'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'best_acc': best_acc,
         'architecture': OTHELLO_ARCH,
         'final_metrics': final_metrics,
         'trajectory': trajectory,

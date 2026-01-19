@@ -105,23 +105,41 @@ At 4 layers, training dynamics become stochastic. Models exhibit repeated collap
 
 ---
 
+### 7. Training Continuation as Intervention
+
+A serendipitous finding: resuming training with fresh optimizer state reveals that optimizer momentum/variance are part of the learned system, not scaffolding.
+
+| Condition | 1-Layer | 4-Layer Max Drop |
+|-----------|---------|------------------|
+| CONTROL (full state) | Stable | **97.3%** collapse |
+| RESET (fresh optimizer) | Transient drop | 53.0% drop, recovers |
+| WARMUP (fresh + warmup) | Stable | **0.1%** (stable) |
+
+**Key insight**: At 4 layers, even CONTROL collapsed catastrophically (2/3 seeds). The instability is not *caused* by optimizer reset—it is *revealed* by continued optimization at an inappropriate step size. Warmup scheduling provides universal protection by preventing the learning rate from coupling to high-curvature directions.
+
+---
+
 ## Repository Structure
 
 ```
 allo-audit/
 ├── experiments/
-│   ├── phase_1_foundation/     # Core 1-layer experiments
+│   ├── phase_1_foundation/     # Core 1-layer experiments + optimizer ablation
 │   ├── phase_2_depth/          # 2-layer validation
 │   ├── phase_3_alternatives/   # Alternative interpretations
 │   ├── phase_4_metastability/  # 4-layer dynamics
 │   ├── phase_5_language/       # TinyStories (8L)
-│   └── phase_6_othello/        # Othello-GPT
+│   └── phase_6_othello/        # Othello-GPT (baseline + optimized)
 │
 ├── lib/                        # Core utilities
 │   ├── metrics.py              # AllostasisAudit (G, S, Psi measurement)
 │   ├── clamps.py               # Variance clamp interventions
 │   ├── part_b_utils.py         # QK surgery, parameter freezing
-│   └── deep_transformer.py     # Multi-layer models
+│   ├── deep_transformer.py     # Multi-layer models
+│   └── othello_dataset.py      # Othello game generation
+│
+├── scripts/
+│   └── pregenerate_othello_cache.py  # Pre-generate Othello game caches
 │
 ├── data/                       # Experiment results
 ├── paper/                      # LaTeX source and figures

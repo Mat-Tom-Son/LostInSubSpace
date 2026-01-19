@@ -513,6 +513,63 @@ This insight explains:
 
 \noindent This stands in sharp contrast to the deterministic dynamics observed in shallow models (1--2 layers), where the transition to generalization (grokking) is smooth and reliable. At depth (4 layers), the process becomes \textbf{stochastic}, defined by escape probability rather than convergence rate.
 
+\subsection{Serendipitous Validation: Training Continuation as Intervention}
+
+During development of our Othello-GPT baseline, a checkpoint resume bug inadvertently created a natural experiment. Our best checkpoint (88.75\% legal move accuracy at step 10,000) was resumed with model weights intact but optimizer state discarded. Rather than maintaining performance, the model \textit{gradually degraded} to 81.80\% over 10,000 additional training steps---a slow drift rather than immediate collapse.
+
+This observation has precedent. Gross et al.\ \cite{gross2024weight} model late-stage optimization as a stochastic dynamical system near a stationary distribution, not descent toward a point. Adam's momentum ($m$) and variance ($v$) estimates encode anisotropic noise structure---resetting them changes the effective diffusion tensor while leaving parameters unchanged. The gradual degradation we observed is precisely what this framing predicts: the noise covariance changed, but the model remained in-basin initially, then slowly drifted as the altered noise coupled differently to local curvature.
+
+\textbf{Controlled Validation.} We tested four conditions on converged modular arithmetic models:
+
+\vspace{0.3cm}
+\begin{table}[h]
+    \centering
+    \begin{tabular}{llc}
+        \toprule
+        \textbf{Condition} & \textbf{Description} & \textbf{1-Layer Result} \\
+        \midrule
+        CONTROL & Full state preserved & 99.19\% $\rightarrow$ 99.81\% \\
+        RESET & Fresh optimizer, full LR & 99.19\% $\rightarrow$ 99.57\% ($\pm$0.28\%) \\
+        LOW\_LR & Fresh optimizer, 0.1$\times$ LR & 99.19\% $\rightarrow$ 99.69\% \\
+        WARMUP & Fresh optimizer, linear warmup & 99.19\% $\rightarrow$ 99.82\% \\
+        \bottomrule
+    \end{tabular}
+    \caption{\textbf{Optimizer State Ablation (1-Layer).} At one layer, optimizer reset causes transient degradation with eventual recovery. Warmup and reduced LR both eliminate the effect.}
+\end{table}
+
+\textbf{Depth Reveals Metastability.} At four layers, the dynamics changed qualitatively:
+
+\vspace{0.3cm}
+\begin{table}[h]
+    \centering
+    \begin{tabular}{lcccc}
+        \toprule
+        \textbf{Condition} & \textbf{Initial} & \textbf{Minimum} & \textbf{Final} & \textbf{Max Drop} \\
+        \midrule
+        CONTROL & 99.5\% & 2.2\% & 98.2\% & \textbf{97.3\%} \\
+        RESET & 63.8\% & 10.8\% & 99.6\% & 53.0\% \\
+        WARMUP & 99.5\% & 99.5\% & 99.6\% & 0.1\% \\
+        \bottomrule
+    \end{tabular}
+    \caption{\textbf{Optimizer State Ablation (4-Layer).} CONTROL also collapsed catastrophically in 2 of 3 seeds, falsifying the assumption that preserving optimizer state guarantees stability.}
+\end{table}
+
+The critical finding: \textbf{CONTROL also collapsed catastrophically}. This falsifies the naive assumption that preserving optimizer state guarantees stability. The instability is not \textit{caused} by optimizer reset---it is \textit{revealed} by continued optimization at an inappropriate step size. This aligns with the Hydra effect \cite{mcgrath2023hydra}: deep networks form redundant pathways where small perturbations can trigger large-scale reconfiguration. Here, temporal continuation itself acts as the intervention.
+
+\textbf{Mechanism: Hessian Spectral Geometry.} The universal protection afforded by warmup is predicted by sharp-spectrum Hessian theory \cite{liao2021hessian}. At depth, the loss landscape develops eigenvalue spikes---even ``stable'' minima are surrounded by steep walls in specific directions. A resumed run with full learning rate immediately samples these stiff modes. Warmup works by slowly reintroducing energy, allowing the system to re-equilibrate rather than slamming into high-curvature barriers.
+
+\textbf{Connection to $G \times S$ Framework.} These results extend our understanding of metastability at depth. The same sharp landscape topology that makes 4-layer models sensitive to geometric perturbation also makes them vulnerable to step-size-induced instability. Both phenomena arise from the high-curvature loss landscape that emerges with depth---a property of landscape topology, not optimization dynamics.
+
+\textbf{What This Contributes Beyond Prior Work:}
+\begin{enumerate}
+    \item Treating optimizer state as part of the learned system, not scaffolding---empirically demonstrating that ``noise geometry memory'' becomes behaviorally load-bearing
+    \item Showing metastability under \textit{continued training}, not explicit intervention---time-continuation as a perturbation class
+    \item Demonstrating that CONTROL can catastrophically fail, falsifying ``just preserve state'' assumptions
+    \item Reframing warmup as a stability boundary condition rather than optimization hygiene
+\end{enumerate}
+
+\textbf{Practical Implications.} Transfer learning workflows that discard optimizer state are only safe because practitioners also use small learning rates and warmup---often without understanding why. For deep models, warmup is not merely beneficial but essential: it prevents the learning rate from coupling to high-curvature directions before the optimization trajectory has re-stabilized. This provides mechanistic grounding for what has been empirical folklore.
+
 \section{Limitations}
 
 \textbf{Scale.} Our experiments use 1--4 layer transformers on controlled tasks. Whether pre-allocated amplitude and the geometry--amplitude trade-off generalize to frontier-scale models remains an open question.

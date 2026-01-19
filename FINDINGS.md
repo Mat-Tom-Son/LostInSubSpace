@@ -791,6 +791,8 @@ PHASE_5_ARCH = {
 | `exp_5_1_quicktest_backup.json` | **Phase 5**: TinyStories quick test (1 seed, 2K steps) |
 | `exp_5_1_tinystories_factorial_*.json` | **Phase 5**: TinyStories 2×2 Factorial (timestamped runs) |
 | `exp_5_1_checkpoint_*.json` | **Phase 5**: Incremental checkpoints (crash protection) |
+| `exp_optimizer_state_necessity_results.json` | **Optimizer Ablation**: 1-layer controlled experiment (3 seeds × 4 conditions) |
+| `exp_optimizer_trajectory_4L_results.json` | **Optimizer Ablation**: 4-layer trajectory analysis (3 seeds × 4 conditions) |
 
 ### Figures (paper/)
 
